@@ -2,7 +2,7 @@ use litellm_core::Error;
 use litellm_core::call_lifecycle::CallLifecycle;
 use litellm_core::ocr::{
     OcrClient,
-    wire::{OcrWireRequest, decode_request},
+    wire::{OcrWireRequest, decode_request, is_supported_request},
 };
 use litellm_core::routing_utils::provider::{CustomLlmProvider, get_custom_llm_provider};
 use serde_json::Value;
@@ -27,13 +27,13 @@ pub async fn ocr(request: OcrRequest<'_>) -> Result<Value, Error> {
             custom_llm_provider: "mistral",
         },
     );
-    if provider.custom_llm_provider == "mistral" {
-        return core_mistral_ocr(request).await;
+    if is_supported_request(provider.model, Some(provider.custom_llm_provider)) {
+        return core_ocr(request).await;
     }
     legacy_ocr(request).await
 }
 
-async fn core_mistral_ocr(request: OcrRequest<'_>) -> Result<Value, Error> {
+async fn core_ocr(request: OcrRequest<'_>) -> Result<Value, Error> {
     let client = OcrClient::new(crate::client::http_client().clone())?;
     let core_request = decode_request(OcrWireRequest {
         model: request.model.to_string(),
@@ -76,6 +76,18 @@ mod tests {
 
     use super::{OcrRequest, ocr};
     use crate::integrations::types::RequestMetadata;
+    use litellm_core::ocr::wire::is_supported_request;
+
+    #[test]
+    fn core_activation_excludes_unmigrated_azure_document_intelligence() {
+        assert!(is_supported_request("model", Some("mistral")));
+        assert!(is_supported_request("pixtral-12b", Some("azure_ai")));
+        assert!(!is_supported_request(
+            "doc-intelligence/prebuilt-layout",
+            Some("azure_ai")
+        ));
+        assert!(!is_supported_request("parse-v3", Some("reducto")));
+    }
 
     async fn read_http_request(socket: &mut TcpStream) -> String {
         let mut request = Vec::new();

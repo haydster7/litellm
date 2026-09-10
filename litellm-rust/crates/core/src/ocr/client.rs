@@ -15,7 +15,6 @@ use crate::media::MediaFetcher;
 #[derive(Clone)]
 pub struct OcrClient {
     provider_http: reqwest::Client,
-    #[allow(dead_code, reason = "consumed by remote-document adapters")]
     document_fetcher: MediaFetcher,
 }
 
@@ -42,7 +41,6 @@ impl OcrClient {
         &self.provider_http
     }
 
-    #[allow(dead_code, reason = "consumed by remote-document adapters")]
     pub(crate) fn document_fetcher(&self) -> &MediaFetcher {
         &self.document_fetcher
     }

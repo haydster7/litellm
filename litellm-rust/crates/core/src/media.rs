@@ -1,8 +1,3 @@
-#![allow(
-    dead_code,
-    reason = "used by the OCR architecture in the next stacked PR"
-)]
-
 use std::future::Future;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
@@ -234,8 +229,10 @@ impl AddressResolver for SystemAddressResolver {
     }
 }
 
+#[cfg(test)]
 struct AllowPrivateResolver;
 
+#[cfg(test)]
 impl AddressResolver for AllowPrivateResolver {
     fn resolve<'a>(&'a self, _host: &'a str, port: u16) -> AddressResolution<'a> {
         Box::pin(async move { Ok(vec![SocketAddr::from(([8, 8, 8, 8], port))]) })
