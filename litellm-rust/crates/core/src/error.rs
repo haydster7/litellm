@@ -111,6 +111,12 @@ impl From<TransportError> for Error {
     }
 }
 
+impl From<crate::AuthError> for Error {
+    fn from(error: crate::AuthError) -> Self {
+        Self::Auth(error.to_string())
+    }
+}
+
 pub fn json_type_name(value: &serde_json::Value) -> &'static str {
     match value {
         serde_json::Value::Null => "null",
