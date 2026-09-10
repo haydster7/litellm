@@ -1,36 +1,19 @@
 use litellm_core::Error;
-use litellm_core::call_lifecycle::CallLifecycle;
 use litellm_core::ocr::{
     OcrClient,
-    wire::{OcrWireRequest, decode_request, is_supported_request},
+    wire::{OcrWireRequest, decode_request},
 };
-use litellm_core::routing_utils::provider::{CustomLlmProvider, get_custom_llm_provider};
 use serde_json::Value;
 use std::sync::Arc;
 
-mod common_utils;
-mod handler;
 mod hooks;
-mod prepare;
 mod types;
 
 pub use types::OcrRequest;
 
-use handler::execute_ocr_provider_call;
-use prepare::{PreparedOcrCall, prepare_ocr_call};
-
 #[tracing::instrument(target = "litellm::function_trace", level = "trace", skip_all)]
 pub async fn ocr(request: OcrRequest<'_>) -> Result<Value, Error> {
-    let provider = get_custom_llm_provider(request.model, request.custom_llm_provider).unwrap_or(
-        CustomLlmProvider {
-            model: request.model,
-            custom_llm_provider: "mistral",
-        },
-    );
-    if is_supported_request(provider.model, Some(provider.custom_llm_provider)) {
-        return core_ocr(request).await;
-    }
-    legacy_ocr(request).await
+    core_ocr(request).await
 }
 
 async fn core_ocr(request: OcrRequest<'_>) -> Result<Value, Error> {
@@ -59,15 +42,6 @@ async fn core_ocr(request: OcrRequest<'_>) -> Result<Value, Error> {
         .map(|response| response.into_json())
 }
 
-async fn legacy_ocr(request: OcrRequest<'_>) -> Result<Value, Error> {
-    let PreparedOcrCall { request, hooks } = prepare_ocr_call(request);
-    CallLifecycle::default()
-        .run_request(request, &hooks, |request| {
-            execute_ocr_provider_call(request, &hooks)
-        })
-        .await
-}
-
 #[cfg(test)]
 mod tests {
     use serde_json::{Map, json};
@@ -88,7 +62,7 @@ mod tests {
         ));
         assert!(is_supported_request("parse-v3", Some("reducto")));
         assert!(is_supported_request("mistral-ocr", Some("vertex_ai")));
-        assert!(!is_supported_request("deepseek-ocr", Some("vertex_ai")));
+        assert!(is_supported_request("deepseek-ocr", Some("vertex_ai")));
     }
 
     async fn read_http_request(socket: &mut TcpStream) -> String {
